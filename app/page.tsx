@@ -9,6 +9,18 @@ type ApiState =
   | { loading: true; state: null }
   | { loading: false; state: PriceState | null };
 
+// 調査日を yyyy/M/d 形式に整形（例: 2025/3/3）
+function formatSurveyDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) {
+    return dateStr;
+  }
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${y}/${m}/${day}`;
+}
+
 export default function Page() {
   const [apiState, setApiState] = useState<ApiState>({
     loading: true,
@@ -31,18 +43,6 @@ export default function Page() {
   }, []);
 
   const state = apiState.state;
-
-  // 調査日を yyyy/M/d 形式に整形（例: 2025/3/3）
-  const formatSurveyDate = (dateStr: string): string => {
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) {
-      return dateStr;
-    }
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const day = d.getDate();
-    return `${y}/${m}/${day}`;
-  };
 
   const handleUpdate = async () => {
     setUpdating(true);
