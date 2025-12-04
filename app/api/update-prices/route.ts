@@ -24,7 +24,7 @@ export async function POST(_req: NextRequest) {
 
     // 3. Workbook読み込み
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buf);
+    await wb.xlsx.load(buf as any);
 
     // 4. PriceState生成
     const newState = buildPriceStateFromWorkbook(wb);
