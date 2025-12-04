@@ -62,8 +62,22 @@ https://vercel.com/dashboard にアクセスしてログインします。
    - `KV_REST_API_TOKEN`
    - `KV_REST_API_READ_ONLY_TOKEN`
    - `KV_URL`
+   - `REDIS_URL`（Redisを使用する場合）
 
-### 5. `.env.local` ファイルを作成
+### 5. Cronジョブ用の環境変数を設定
+
+Cronジョブによる自動更新を有効にするには、`CRON_SECRET`環境変数を設定する必要があります。
+
+1. プロジェクトの **Settings** タブを開く
+2. **Environment Variables** を選択
+3. **Add New** をクリック
+4. 以下の環境変数を追加：
+   - **Key**: `CRON_SECRET`
+   - **Value**: ランダムな文字列（例：`openssl rand -base64 32`で生成）
+   - **Environment**: Production, Preview, Development すべてにチェック
+5. **Save** をクリック
+
+### 6. `.env.local` ファイルを作成
 
 プロジェクトのルートディレクトリに `.env.local` ファイルを作成し、以下の形式で環境変数を記述します：
 
@@ -72,6 +86,8 @@ KV_REST_API_URL=https://your-kv-instance.upstash.io
 KV_REST_API_TOKEN=your-token-here
 KV_REST_API_READ_ONLY_TOKEN=your-read-only-token-here
 KV_URL=redis://default:your-password@your-kv-instance.upstash.io:6379
+REDIS_URL=redis://default:your-password@your-redis-instance.upstash.io:6379
+CRON_SECRET=your-random-secret-string
 ```
 
 **注意**: 実際の値は、Vercel Dashboardに表示されている値をコピーしてください。
@@ -130,11 +146,13 @@ Get-Content .env.local
 cat .env.local
 ```
 
-`.env.local` ファイルには以下の4つの環境変数が含まれている必要があります：
+`.env.local` ファイルには以下の環境変数が含まれている必要があります：
 - `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
 - `KV_REST_API_READ_ONLY_TOKEN`
 - `KV_URL`
+- `REDIS_URL`（Redisを使用する場合）
+- `CRON_SECRET`（Cronジョブを使用する場合）
 
 ---
 

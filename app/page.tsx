@@ -57,9 +57,14 @@ export default function Page() {
     } catch (e: any) {
       // JSONパースエラーの場合
       if (e instanceof SyntaxError) {
-        setMessage('サーバーからの応答が不正です。タイムアウトの可能性があります。しばらく待ってから再度お試しください。');
+        setMessage('サーバーからの応答が不正です。タイムアウトの可能性があります。Cronジョブによる自動更新を待つか、しばらく時間をおいてから再度お試しください。');
       } else {
-        setMessage(e.message || '更新に失敗しました');
+        let errorMessage = e.message || '更新に失敗しました';
+        // タイムアウトエラーの場合、Cronジョブについても言及
+        if (errorMessage.includes('タイムアウト')) {
+          errorMessage += ' Cronジョブによる自動更新（毎日午前9時）を待つか、しばらく時間をおいてから再度お試しください。';
+        }
+        setMessage(errorMessage);
       }
     } finally {
       setUpdating(false);

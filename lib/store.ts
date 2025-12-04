@@ -4,8 +4,10 @@ import type { PriceState } from './types';
 
 const KEY = 'gas_price_state';
 
-// 環境変数が設定されているかチェック
-const hasRedisEnv = !!process.env.REDIS_URL;
+// 環境変数が設定されているかチェック（実行時に動的にチェック）
+function hasRedisEnv(): boolean {
+  return !!process.env.REDIS_URL;
+}
 
 // Redisクライアントの接続を管理（Next.js App Router用）
 let redisClient: any = null;
@@ -49,7 +51,7 @@ async function saveStateRedis(state: PriceState): Promise<void> {
 
 // 環境変数に応じて実装を切り替え
 export async function loadState(): Promise<PriceState | null> {
-  if (hasRedisEnv) {
+  if (hasRedisEnv()) {
     try {
       return await loadStateRedis();
     } catch (error) {
@@ -65,7 +67,7 @@ export async function loadState(): Promise<PriceState | null> {
 }
 
 export async function saveState(state: PriceState): Promise<void> {
-  if (hasRedisEnv) {
+  if (hasRedisEnv()) {
     try {
       await saveStateRedis(state);
     } catch (error) {

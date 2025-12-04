@@ -3,7 +3,16 @@
   "functions": {
     "app/api/update-prices/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/update-prices/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/update-prices",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }
 
