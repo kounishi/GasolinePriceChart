@@ -87,6 +87,8 @@ function fillSection(
       const cell = row.getCell(col);
       cell.value = v;
 
+      // ★ 全国より高ければ赤塗りする処理は、Excel側の条件付き書式で行うため無効化
+      /*
       // 全国より高ければ赤塗り
       if (!isNaN(v) && v > nat) {
         cell.fill = {
@@ -97,6 +99,7 @@ function fillSection(
       } else {
         cell.fill = undefined as any;
       }
+      */
     }
 
     row.commit();
