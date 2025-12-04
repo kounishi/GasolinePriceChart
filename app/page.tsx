@@ -32,6 +32,18 @@ export default function Page() {
 
   const state = apiState.state;
 
+  // 調査日を yyyy/M/d 形式に整形（例: 2025/3/3）
+  const formatSurveyDate = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) {
+      return dateStr;
+    }
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    return `${y}/${m}/${day}`;
+  };
+
   const handleUpdate = async () => {
     setUpdating(true);
     setMessage(null);
@@ -102,7 +114,7 @@ export default function Page() {
         <div className="space-y-8">
           <p className="text-sm text-gray-600">
             最終更新: {new Date(state.updatedAt).toLocaleString()} / 直近調査日:{' '}
-            {state.lastSurveyDate}
+            {formatSurveyDate(state.lastSurveyDate)}
           </p>
 
           {state.sections.map((section) => (
@@ -145,7 +157,9 @@ function SectionTable({ section }: { section: Section }) {
           <tbody>
             {surveyDates.map((date, i) => (
               <tr key={i}>
-                <td className="border px-2 py-1 whitespace-nowrap">{date}</td>
+                <td className="border px-2 py-1 whitespace-nowrap">
+                  {formatSurveyDate(date)}
+                </td>
                 <td className="border px-2 py-1 text-right">
                   {national[i]?.toFixed(1)}
                 </td>

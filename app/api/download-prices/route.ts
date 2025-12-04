@@ -33,6 +33,19 @@ function normalizeName(v: any): string {
   return String(v).replace(/\s|　/g, '');
 }
 
+// 調査日を yyyy/M/d 形式に整形（例: 2025/3/3）
+function formatSurveyDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) {
+    // パースできない場合は元の文字列をそのまま返す
+    return dateStr;
+  }
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${y}/${m}/${day}`;
+}
+
 function fillSection(
   sheet: ExcelJS.Worksheet,
   section: Section,
@@ -68,8 +81,8 @@ function fillSection(
     const rowIndex = dataStartRow + i;
     const row = sheet.getRow(rowIndex);
 
-    // 調査日
-    row.getCell(dateCol).value = section.surveyDates[i];
+    // 調査日（yyyy/M/d 形式に整形）
+    row.getCell(dateCol).value = formatSurveyDate(section.surveyDates[i]);
 
     // 全国
     const nat = section.national[i] ?? 0;
