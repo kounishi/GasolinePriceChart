@@ -8,6 +8,29 @@ function normalizeName(v: any): string {
   return String(v).replace(/\s|　/g, ''); // 半角・全角スペース除去
 }
 
+// Excelの日付値をISO文字列に変換（Dateオブジェクトまたは文字列を処理）
+function convertDateValueToISO(value: any): string {
+  if (value == null) return '';
+  
+  // Dateオブジェクトの場合
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  
+  // 既に文字列の場合
+  const str = String(value);
+  if (!str) return '';
+  
+  // 既にISO形式またはパース可能な形式の場合
+  const d = new Date(str);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toISOString();
+  }
+  
+  // パースできない場合は元の文字列を返す
+  return str;
+}
+
 // 東日本・西日本に分けるための都道府県リスト（必要に応じて調整）
 const EAST_PREFS = [
   '北海道',
@@ -117,9 +140,9 @@ function buildSectionsFromSheet(
   const last5Rows = getLast5RowNumbers(ws, dateCol);
   const sortedRows = [...last5Rows].sort((a, b) => a - b); // 古い順
 
-  // 調査日
+  // 調査日（Excelの日付値をISO文字列に変換して保存）
   const surveyDates = sortedRows.map((r) =>
-    String(ws.getCell(r, dateCol).value ?? '')
+    convertDateValueToISO(ws.getCell(r, dateCol).value)
   );
 
   // 全国
