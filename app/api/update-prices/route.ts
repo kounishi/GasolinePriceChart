@@ -22,8 +22,8 @@ export async function POST(_req: NextRequest) {
     const weeklyUrl = await getWeeklyFileUrl();
 
     // 2. Excel取得
-    const maxRetries = 2; // リトライ回数を減らす
-    const timeoutMs = 25000; // 25秒タイムアウト（Vercelの60秒制限内で余裕を持たせる）
+    const maxRetries = 1; // リトライ回数を1回に減らし、1回の試行時間を長くする
+    const timeoutMs = 55000; // 55秒タイムアウト（Vercelの60秒制限内で最大限に）
     let resp: Response | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -31,11 +31,18 @@ export async function POST(_req: NextRequest) {
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
+        console.log(`週次ファイル取得を開始します (試行 ${attempt}/${maxRetries})`);
+        const startTime = Date.now();
+        
         resp = await fetch(weeklyUrl, {
           cache: 'no-store',
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        
+        const duration = Date.now() - startTime;
+        console.log(`週次ファイル取得完了 (所要時間: ${duration}ms)`);
+        
         break; // 成功したらループを抜ける
       } catch (error: any) {
         clearTimeout(timeoutId);
@@ -44,8 +51,8 @@ export async function POST(_req: NextRequest) {
             console.warn(
               `週次ファイル取得がタイムアウトしました (試行 ${attempt}/${maxRetries})。リトライします...`
             );
-            // リトライ前に少し待機
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            // リトライ前に待機（サイトへの負荷を減らす）
+            await new Promise((resolve) => setTimeout(resolve, 5000));
             continue;
           }
           throw new Error('週次ファイル取得がタイムアウトしました（リトライ上限に達しました）');
