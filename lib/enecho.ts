@@ -7,38 +7,57 @@ const RESULTS_URL =
 
 // HTML を読んで「週次ファイル」のリンクを探す
 export async function getWeeklyFileUrl(): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+  const maxRetries = 3;
+  const timeoutMs = 60000; // 60秒タイムアウト
 
-  try {
-    const resp = await fetch(RESULTS_URL, {
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!resp.ok) {
-      throw new Error(`results.html取得に失敗しました (${resp.status})`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(RESULTS_URL, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (!resp.ok) {
+        throw new Error(`results.html取得に失敗しました (${resp.status})`);
+      }
+
+      const html = await resp.text();
+      const $ = cheerio.load(html);
+
+      const link = $('a')
+        .filter((_, el) => $(el).text().includes('週次ファイル'))
+        .first();
+
+      const href = link.attr('href');
+      if (!href) {
+        throw new Error('「週次ファイル」のリンクが見つかりませんでした');
+      }
+
+      return new URL(href, RESULTS_URL).toString();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        if (attempt < maxRetries) {
+          console.warn(
+            `results.html取得がタイムアウトしました (試行 ${attempt}/${maxRetries})。リトライします...`
+          );
+          // リトライ前に少し待機
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+        throw new Error('results.html取得がタイムアウトしました（リトライ上限に達しました）');
+      }
+      
+      // タイムアウト以外のエラーは即座にスロー
+      throw error;
     }
-
-    const html = await resp.text();
-    const $ = cheerio.load(html);
-
-    const link = $('a')
-      .filter((_, el) => $(el).text().includes('週次ファイル'))
-      .first();
-
-    const href = link.attr('href');
-    if (!href) {
-      throw new Error('「週次ファイル」のリンクが見つかりませんでした');
-    }
-
-    return new URL(href, RESULTS_URL).toString();
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-      throw new Error('results.html取得がタイムアウトしました');
-    }
-    throw error;
   }
+
+  throw new Error('results.html取得に失敗しました');
 }
 

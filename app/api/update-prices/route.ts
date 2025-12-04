@@ -16,22 +16,40 @@ export async function POST(_req: NextRequest) {
     const weeklyUrl = await getWeeklyFileUrl();
 
     // 2. Excel取得
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+    const maxRetries = 3;
+    const timeoutMs = 60000; // 60秒タイムアウト
+    let resp: Response | null = null;
 
-    let resp: Response;
-    try {
-      resp = await fetch(weeklyUrl, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('週次ファイル取得がタイムアウトしました');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        resp = await fetch(weeklyUrl, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        break; // 成功したらループを抜ける
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          if (attempt < maxRetries) {
+            console.warn(
+              `週次ファイル取得がタイムアウトしました (試行 ${attempt}/${maxRetries})。リトライします...`
+            );
+            // リトライ前に少し待機
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            continue;
+          }
+          throw new Error('週次ファイル取得がタイムアウトしました（リトライ上限に達しました）');
+        }
+        throw error;
       }
-      throw error;
+    }
+
+    if (!resp) {
+      throw new Error('週次ファイル取得に失敗しました');
     }
 
     if (!resp.ok) {
