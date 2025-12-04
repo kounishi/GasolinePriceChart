@@ -37,6 +37,13 @@ export default function Page() {
     setMessage(null);
     try {
       const res = await fetch('/api/update-prices', { method: 'POST' });
+      
+      // レスポンスがJSONかどうかを確認
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('サーバーからの応答が不正です。タイムアウトの可能性があります。');
+      }
+      
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || '更新に失敗しました');
@@ -48,7 +55,12 @@ export default function Page() {
       }
       setApiState({ loading: false, state: data.state });
     } catch (e: any) {
-      setMessage(e.message || '更新に失敗しました');
+      // JSONパースエラーの場合
+      if (e instanceof SyntaxError) {
+        setMessage('サーバーからの応答が不正です。タイムアウトの可能性があります。しばらく待ってから再度お試しください。');
+      } else {
+        setMessage(e.message || '更新に失敗しました');
+      }
     } finally {
       setUpdating(false);
     }

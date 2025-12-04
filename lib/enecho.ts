@@ -7,8 +7,8 @@ const RESULTS_URL =
 
 // HTML を読んで「週次ファイル」のリンクを探す
 export async function getWeeklyFileUrl(): Promise<string> {
-  const maxRetries = 3;
-  const timeoutMs = 60000; // 60秒タイムアウト
+  const maxRetries = 2; // リトライ回数を減らす
+  const timeoutMs = 25000; // 25秒タイムアウト（Vercelの60秒制限内で余裕を持たせる）
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();

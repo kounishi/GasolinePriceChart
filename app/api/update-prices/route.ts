@@ -9,6 +9,12 @@ import { loadState, saveState } from '@/lib/store';
 export const runtime = 'nodejs';
 
 export async function POST(_req: NextRequest) {
+  // 全体のタイムアウトを設定（Vercelの60秒制限より前にエラーレスポンスを返す）
+  const overallTimeout = setTimeout(() => {
+    // このタイムアウトは実際には処理を中断できないが、ログに記録する
+    console.warn('リクエスト全体がタイムアウトに近づいています');
+  }, 55000); // 55秒後に警告
+
   try {
     const current = await loadState();
 
@@ -16,8 +22,8 @@ export async function POST(_req: NextRequest) {
     const weeklyUrl = await getWeeklyFileUrl();
 
     // 2. Excel取得
-    const maxRetries = 3;
-    const timeoutMs = 60000; // 60秒タイムアウト
+    const maxRetries = 2; // リトライ回数を減らす
+    const timeoutMs = 25000; // 25秒タイムアウト（Vercelの60秒制限内で余裕を持たせる）
     let resp: Response | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -87,6 +93,8 @@ export async function POST(_req: NextRequest) {
       { error: e.message ?? '更新に失敗しました' },
       { status: 500 }
     );
+  } finally {
+    clearTimeout(overallTimeout);
   }
 }
 
