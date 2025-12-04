@@ -130,7 +130,7 @@ export async function GET(_req: NextRequest) {
 
     const tmplBuf = await fs.readFile(TEMPLATE_PATH);
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(Buffer.from(new Uint8Array(tmplBuf)));
+    await wb.xlsx.load(tmplBuf as any);
 
     fillTemplateFromState(wb, state);
 
