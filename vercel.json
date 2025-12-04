@@ -1,4 +1,9 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "app/api/update-prices/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }
 

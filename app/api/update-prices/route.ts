@@ -16,7 +16,24 @@ export async function POST(_req: NextRequest) {
     const weeklyUrl = await getWeeklyFileUrl();
 
     // 2. Excel取得
-    const resp = await fetch(weeklyUrl, { cache: 'no-store' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+
+    let resp: Response;
+    try {
+      resp = await fetch(weeklyUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('週次ファイル取得がタイムアウトしました');
+      }
+      throw error;
+    }
+
     if (!resp.ok) {
       throw new Error(`週次ファイル取得に失敗しました (${resp.status})`);
     }
