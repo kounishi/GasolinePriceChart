@@ -122,6 +122,16 @@ function buildSectionsFromSheet(
     throw new Error(`${ws.name} シートで調査日/全国列が見つかりません`);
   }
 
+  // デバッグ: 北海道・沖縄関連の列名を確認
+  const hokkaidoKeys = Array.from(prefColMap.keys()).filter(k => k.includes('北海道'));
+  const okinawaKeys = Array.from(prefColMap.keys()).filter(k => k.includes('沖縄'));
+  if (hokkaidoKeys.length > 0) {
+    console.log(`[${ws.name}] 北海道関連の列名:`, hokkaidoKeys);
+  }
+  if (okinawaKeys.length > 0) {
+    console.log(`[${ws.name}] 沖縄関連の列名:`, okinawaKeys);
+  }
+
   const last5Rows = getLast5RowNumbers(ws, dateCol);
   const sortedRows = [...last5Rows].sort((a, b) => a - b); // 古い順
 
@@ -139,13 +149,40 @@ function buildSectionsFromSheet(
   function buildPrefRows(prefNames: string[]): PrefRow[] {
     const rows: PrefRow[] = [];
     for (const p of prefNames) {
-      const norm = normalizeName(p);
-      const col = prefColMap.get(norm);
-      if (!col) continue; // 該当列がない場合はスキップ
+      let col: number | undefined;
+      let searchKey: string;
+      
+      // 北海道と沖縄の場合は「局」を付けた名前で検索（週次ファイルでは「北海道局」「沖縄局」という列名）
+      if (p === '北海道' || p === '沖縄') {
+        const normWithKyoku = normalizeName(p + '局');
+        searchKey = normWithKyoku;
+        col = prefColMap.get(normWithKyoku);
+        // 念のため、通常の名前でも検索
+        if (!col) {
+          const norm = normalizeName(p);
+          searchKey = norm;
+          col = prefColMap.get(norm);
+        }
+      } else {
+        // その他の都道府県は通常の名前で検索
+        const norm = normalizeName(p);
+        searchKey = norm;
+        col = prefColMap.get(norm);
+      }
+      
+      if (!col) {
+        console.warn(`[${ws.name}] 列が見つかりません: ${p} (検索したキー: ${searchKey})`);
+        continue; // 該当列がない場合はスキップ
+      }
 
       const prices = sortedRows.map((r) =>
         Number(ws.getCell(r, col).value ?? 0)
       );
+
+      // デバッグ: 北海道と沖縄のデータを確認
+      if (p === '北海道' || p === '沖縄') {
+        console.log(`[${ws.name}] ${p}: 列=${col}, 検索キー=${searchKey}, 価格データ=`, prices);
+      }
 
       rows.push({ prefecture: p, prices });
     }

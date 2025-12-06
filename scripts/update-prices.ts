@@ -67,12 +67,32 @@ async function main() {
       current.sections.some(s => s.id.includes('-east') || s.id.includes('-west'))
     );
 
-    // 6. 調査日が同じで、かつ新しい形式の場合は更新不要
-    if (current && current.lastSurveyDate === newState.lastSurveyDate && !isOldFormat) {
+    // 5-2. 既存データに北海道・沖縄のデータが含まれているかを確認
+    const hasHokkaidoOkinawaData = current && (() => {
+      // 北海道と沖縄のセクションを確認
+      const hokkaidoSections = current.sections.filter(s => s.region === 'hokkaido');
+      const okinawaSections = current.sections.filter(s => s.region === 'okinawa');
+      
+      // 各セクションにデータが含まれているか確認
+      const hokkaidoHasData = hokkaidoSections.length > 0 && 
+        hokkaidoSections.every(s => s.rows.length > 0 && s.rows.some(r => r.prefecture === '北海道' && r.prices.some(p => p > 0)));
+      const okinawaHasData = okinawaSections.length > 0 && 
+        okinawaSections.every(s => s.rows.length > 0 && s.rows.some(r => r.prefecture === '沖縄' && r.prices.some(p => p > 0)));
+      
+      return hokkaidoHasData && okinawaHasData;
+    })();
+
+    // 6. 調査日が同じで、かつ新しい形式で、かつ北海道・沖縄のデータが含まれている場合は更新不要
+    if (current && current.lastSurveyDate === newState.lastSurveyDate && !isOldFormat && hasHokkaidoOkinawaData) {
       console.log('\n' + '='.repeat(60));
       console.log('✓ データは最新です。更新は不要です。');
       console.log('='.repeat(60));
       return;
+    }
+
+    // 6-2. 北海道・沖縄のデータが不足している場合は更新が必要
+    if (current && !hasHokkaidoOkinawaData) {
+      console.log('\n既存データに北海道・沖縄のデータが不足しています。更新します...');
     }
 
     // 7. Redisに保存（古い形式の場合は強制更新）
