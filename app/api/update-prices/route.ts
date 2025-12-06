@@ -1,114 +1,39 @@
 // app/api/update-prices/route.ts
+// ブラウザからの「更新」ボタンクリック時に呼ばれるエンドポイント
+// Redisからデータを読み込んで表示を更新するだけ（週次ファイルの取得やRedisへの保存は行わない）
 
 import { NextRequest, NextResponse } from 'next/server';
-import ExcelJS from 'exceljs';
-import { getWeeklyFileUrl } from '@/lib/enecho';
-import { buildPriceStateFromWorkbook } from '@/lib/weekly';
-import { loadState, saveState } from '@/lib/store';
+import { loadState } from '@/lib/store';
 
 export const runtime = 'nodejs';
 
 export async function POST(_req: NextRequest) {
-  // 全体のタイムアウトを設定（Vercelの60秒制限より前にエラーレスポンスを返す）
-  const overallTimeout = setTimeout(() => {
-    // このタイムアウトは実際には処理を中断できないが、ログに記録する
-    console.warn('リクエスト全体がタイムアウトに近づいています');
-  }, 55000); // 55秒後に警告
-
   try {
-    const current = await loadState();
+    // Redisから現在のデータを読み込む
+    const state = await loadState();
 
-    // 1. 週次ファイルURL取得
-    const weeklyUrl = await getWeeklyFileUrl();
-
-    // 2. Excel取得
-    const maxRetries = 1; // リトライ回数を1回に減らし、1回の試行時間を長くする
-    const timeoutMs = 55000; // 55秒タイムアウト（Vercelの60秒制限内で最大限に）
-    let resp: Response | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        console.log(`週次ファイル取得を開始します (試行 ${attempt}/${maxRetries})`);
-        const startTime = Date.now();
-        
-        resp = await fetch(weeklyUrl, {
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        
-        const duration = Date.now() - startTime;
-        console.log(`週次ファイル取得完了 (所要時間: ${duration}ms)`);
-        
-        break; // 成功したらループを抜ける
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          if (attempt < maxRetries) {
-            console.warn(
-              `週次ファイル取得がタイムアウトしました (試行 ${attempt}/${maxRetries})。リトライします...`
-            );
-            // リトライ前に待機（サイトへの負荷を減らす）
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            continue;
-          }
-          throw new Error('週次ファイル取得がタイムアウトしました（リトライ上限に達しました）');
-        }
-        throw error;
-      }
-    }
-
-    if (!resp) {
-      throw new Error('週次ファイル取得に失敗しました');
-    }
-
-    if (!resp.ok) {
-      throw new Error(`週次ファイル取得に失敗しました (${resp.status})`);
-    }
-    const buf = Buffer.from(await resp.arrayBuffer());
-
-    // 3. Workbook読み込み
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buf as any);
-
-    // 4. PriceState生成
-    const newState = buildPriceStateFromWorkbook(wb);
-
-    // 5. 調査日が同じなら更新不要
-    if (current && current.lastSurveyDate === newState.lastSurveyDate) {
+    if (!state) {
       return NextResponse.json({
-        latest: true,
-        state: current,
-        message: 'データは最新です',
+        latest: false,
+        state: null,
+        message: 'データがまだ更新されていません。Cronジョブまたはローカルスクリプトによる更新を待ってください。',
       });
     }
 
-    // 6. KVに保存
-    await saveState(newState);
-
+    // データが存在する場合は、そのまま返す
     return NextResponse.json({
-      latest: false,
-      state: newState,
-      message: '最新データを取得しました',
+      latest: true,
+      state: state,
+      message: '表示を更新しました',
     });
   } catch (e: any) {
     console.error(e);
-    let errorMessage = e.message ?? '更新に失敗しました';
-    
-    // タイムアウトエラーの場合、より詳細なメッセージを返す
-    if (errorMessage.includes('タイムアウト')) {
-      errorMessage = 'データ取得がタイムアウトしました。Cronジョブによる自動更新を待つか、しばらく時間をおいてから再度お試しください。';
-    }
+    const errorMessage = e.message ?? 'データの読み込みに失敗しました';
     
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }
     );
-  } finally {
-    clearTimeout(overallTimeout);
   }
 }
 

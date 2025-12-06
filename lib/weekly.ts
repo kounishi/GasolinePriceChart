@@ -1,7 +1,7 @@
 // lib/weekly.ts
 
 import ExcelJS from 'exceljs';
-import type { PriceState, Section, PrefRow } from './types';
+import type { PriceState, Section, PrefRow, Region } from './types';
 
 function normalizeName(v: any): string {
   if (v == null) return '';
@@ -31,58 +31,43 @@ function convertDateValueToISO(value: any): string {
   return str;
 }
 
-// 東日本・西日本に分けるための都道府県リスト（必要に応じて調整）
-const EAST_PREFS = [
-  '北海道',
-  '青森',
-  '岩手',
-  '宮城',
-  '秋田',
-  '山形',
-  '福島',
-  '茨城',
-  '栃木',
-  '群馬',
-  '埼玉',
-  '千葉',
-  '東京',
-  '神奈川',
-  '新潟',
-  '富山',
-  '石川',
-  '福井',
-  '山梨',
-  '長野',
-];
+// 地方ごとの都道府県リスト（EXCELテンプレートの並び順に合わせる）
+// 現在のEAST_PREFSとWEST_PREFSの並び順を維持
+const REGION_PREFS: Record<Region, string[]> = {
+  hokkaido: ['北海道'],
+  tohoku: ['青森', '岩手', '宮城', '秋田', '山形', '福島'],
+  kanto: ['茨城', '栃木', '群馬', '埼玉', '千葉', '東京', '神奈川'],
+  chubu: ['新潟', '富山', '石川', '福井', '山梨', '長野', '岐阜', '静岡', '愛知'],
+  kinki: ['三重', '滋賀', '京都', '大阪', '兵庫', '奈良', '和歌山'],
+  chugoku: ['鳥取', '島根', '岡山', '広島', '山口'],
+  shikoku: ['徳島', '香川', '愛媛', '高知'],
+  kyushu: ['福岡', '佐賀', '長崎', '熊本', '大分', '宮崎', '鹿児島'],
+  okinawa: ['沖縄'],
+};
 
-const WEST_PREFS = [
-  '岐阜',
-  '静岡',
-  '愛知',
-  '三重',
-  '滋賀',
-  '京都',
-  '大阪',
-  '兵庫',
-  '奈良',
-  '和歌山',
-  '鳥取',
-  '島根',
-  '岡山',
-  '広島',
-  '山口',
-  '徳島',
-  '香川',
-  '愛媛',
-  '高知',
-  '福岡',
-  '佐賀',
-  '長崎',
-  '熊本',
-  '大分',
-  '宮崎',
-  '鹿児島',
-  '沖縄',
+const REGION_NAMES: Record<Region, string> = {
+  hokkaido: '北海道',
+  tohoku: '東北',
+  kanto: '関東',
+  chubu: '中部',
+  kinki: '近畿',
+  chugoku: '中国',
+  shikoku: '四国',
+  kyushu: '九州',
+  okinawa: '沖縄',
+};
+
+// 地方の順序（表示順）
+const REGION_ORDER: Region[] = [
+  'hokkaido',
+  'tohoku',
+  'kanto',
+  'chubu',
+  'kinki',
+  'chugoku',
+  'shikoku',
+  'kyushu',
+  'okinawa',
 ];
 
 type Fuel = 'regular' | 'high' | 'diesel';
@@ -108,7 +93,7 @@ function getLast5RowNumbers(ws: ExcelJS.Worksheet, dateCol = 2): number[] {
   return nums.slice(-5); // 直近5行
 }
 
-// 1シートから Section(東日本/西日本) を2つ作る
+// 1シートから Section(地方ごと) を9つ作る
 function buildSectionsFromSheet(
   ws: ExcelJS.Worksheet,
   fuel: Fuel
@@ -167,30 +152,23 @@ function buildSectionsFromSheet(
     return rows;
   }
 
-  const eastRows = buildPrefRows(EAST_PREFS);
-  const westRows = buildPrefRows(WEST_PREFS);
-
   const sections: Section[] = [];
 
-  sections.push({
-    id: `${fuel}-east`,
-    title: `${FUEL_TITLE[fuel]}（東日本）`,
-    fuel,
-    region: 'east',
-    surveyDates,
-    national,
-    rows: eastRows,
-  });
-
-  sections.push({
-    id: `${fuel}-west`,
-    title: `${FUEL_TITLE[fuel]}（西日本）`,
-    fuel,
-    region: 'west',
-    surveyDates,
-    national,
-    rows: westRows,
-  });
+  // 各地方ごとにセクションを作成
+  for (const region of REGION_ORDER) {
+    const prefNames = REGION_PREFS[region];
+    const rows = buildPrefRows(prefNames);
+    
+    sections.push({
+      id: `${fuel}-${region}`,
+      title: `${FUEL_TITLE[fuel]}（${REGION_NAMES[region]}）`,
+      fuel,
+      region,
+      surveyDates,
+      national,
+      rows,
+    });
+  }
 
   return sections;
 }

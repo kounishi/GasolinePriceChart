@@ -5,7 +5,7 @@ import * as fs from 'fs/promises';
 import path from 'path';
 import ExcelJS from 'exceljs';
 import { loadState } from '@/lib/store';
-import type { PriceState, Section } from '@/lib/types';
+import type { PriceState, Section, Region } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -16,16 +16,42 @@ const TEMPLATE_PATH = path.join(
 );
 
 // ★テンプレの各セクションの位置を定義
+// 地方ごとのセクション（3燃料 × 9地方 = 27セクション）
+// EXCELテンプレートの実際の構造に合わせて調整してください
 const SECTION_LAYOUTS: Record<
   string,
   { sheet: string; headerRow: number; dataStartRow: number }
 > = {
-  'regular-east': { sheet: '比較表まとめ', headerRow: 1, dataStartRow: 2 },
-  'high-east': { sheet: '比較表まとめ', headerRow: 7, dataStartRow: 8 },
-  'diesel-east': { sheet: '比較表まとめ', headerRow: 13, dataStartRow: 14 },
-  'regular-west': { sheet: '比較表まとめ', headerRow: 21, dataStartRow: 22 },
-  'high-west': { sheet: '比較表まとめ', headerRow: 27, dataStartRow: 28 },
-  'diesel-west': { sheet: '比較表まとめ', headerRow: 33, dataStartRow: 34 },
+  // レギュラー
+  'regular-hokkaido': { sheet: '比較表まとめ', headerRow: 1, dataStartRow: 2 },
+  'regular-tohoku': { sheet: '比較表まとめ', headerRow: 8, dataStartRow: 9 },
+  'regular-kanto': { sheet: '比較表まとめ', headerRow: 15, dataStartRow: 16 },
+  'regular-chubu': { sheet: '比較表まとめ', headerRow: 22, dataStartRow: 23 },
+  'regular-kinki': { sheet: '比較表まとめ', headerRow: 29, dataStartRow: 30 },
+  'regular-chugoku': { sheet: '比較表まとめ', headerRow: 36, dataStartRow: 37 },
+  'regular-shikoku': { sheet: '比較表まとめ', headerRow: 43, dataStartRow: 44 },
+  'regular-kyushu': { sheet: '比較表まとめ', headerRow: 50, dataStartRow: 51 },
+  'regular-okinawa': { sheet: '比較表まとめ', headerRow: 57, dataStartRow: 58 },
+  // ハイオク
+  'high-hokkaido': { sheet: '比較表まとめ', headerRow: 64, dataStartRow: 65 },
+  'high-tohoku': { sheet: '比較表まとめ', headerRow: 71, dataStartRow: 72 },
+  'high-kanto': { sheet: '比較表まとめ', headerRow: 78, dataStartRow: 79 },
+  'high-chubu': { sheet: '比較表まとめ', headerRow: 85, dataStartRow: 86 },
+  'high-kinki': { sheet: '比較表まとめ', headerRow: 92, dataStartRow: 93 },
+  'high-chugoku': { sheet: '比較表まとめ', headerRow: 99, dataStartRow: 100 },
+  'high-shikoku': { sheet: '比較表まとめ', headerRow: 106, dataStartRow: 107 },
+  'high-kyushu': { sheet: '比較表まとめ', headerRow: 113, dataStartRow: 114 },
+  'high-okinawa': { sheet: '比較表まとめ', headerRow: 120, dataStartRow: 121 },
+  // 軽油
+  'diesel-hokkaido': { sheet: '比較表まとめ', headerRow: 127, dataStartRow: 128 },
+  'diesel-tohoku': { sheet: '比較表まとめ', headerRow: 134, dataStartRow: 135 },
+  'diesel-kanto': { sheet: '比較表まとめ', headerRow: 141, dataStartRow: 142 },
+  'diesel-chubu': { sheet: '比較表まとめ', headerRow: 148, dataStartRow: 149 },
+  'diesel-kinki': { sheet: '比較表まとめ', headerRow: 155, dataStartRow: 156 },
+  'diesel-chugoku': { sheet: '比較表まとめ', headerRow: 162, dataStartRow: 163 },
+  'diesel-shikoku': { sheet: '比較表まとめ', headerRow: 169, dataStartRow: 170 },
+  'diesel-kyushu': { sheet: '比較表まとめ', headerRow: 176, dataStartRow: 177 },
+  'diesel-okinawa': { sheet: '比較表まとめ', headerRow: 183, dataStartRow: 184 },
 };
 
 function normalizeName(v: any): string {

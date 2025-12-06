@@ -80,8 +80,14 @@ export async function GET(request: NextRequest) {
     // 4. PriceState生成
     const newState = buildPriceStateFromWorkbook(wb);
 
-    // 5. 調査日が同じなら更新不要
-    if (current && current.lastSurveyDate === newState.lastSurveyDate) {
+    // 5. 古い形式のデータを検出（セクション数が6個、またはIDに`-east`/`-west`が含まれる）
+    const isOldFormat = current && (
+      current.sections.length === 6 ||
+      current.sections.some(s => s.id.includes('-east') || s.id.includes('-west'))
+    );
+
+    // 6. 調査日が同じで、かつ新しい形式の場合は更新不要
+    if (current && current.lastSurveyDate === newState.lastSurveyDate && !isOldFormat) {
       console.log('Cronジョブ: データは最新です');
       return NextResponse.json({
         success: true,
@@ -90,14 +96,17 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 6. Redisに保存
+    // 7. Redisに保存（古い形式の場合は強制更新）
+    if (isOldFormat) {
+      console.log('Cronジョブ: 古い形式のデータが検出されました。新しい形式に更新します...');
+    }
     await saveState(newState);
     console.log('Cronジョブ: データ更新が完了しました');
 
     return NextResponse.json({
       success: true,
       latest: false,
-      message: '最新データを取得しました',
+      message: isOldFormat ? 'データ形式を更新しました' : '最新データを取得しました',
       lastSurveyDate: newState.lastSurveyDate,
     });
   } catch (e: any) {

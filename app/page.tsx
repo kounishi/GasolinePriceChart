@@ -60,7 +60,10 @@ export default function Page() {
       if (!res.ok) {
         throw new Error(data.error || '更新に失敗しました');
       }
-      if (data.latest) {
+      // メッセージが指定されている場合はそれを使用、なければlatestに基づいて表示
+      if (data.message) {
+        setMessage(data.message);
+      } else if (data.latest) {
         setMessage('データは最新です');
       } else {
         setMessage('最新データを取得しました');
