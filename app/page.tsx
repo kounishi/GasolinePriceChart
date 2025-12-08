@@ -120,8 +120,8 @@ export default function Page() {
             {formatSurveyDate(state.lastSurveyDate)}
           </p>
 
-          {state.sections.map((section) => (
-            <SectionTable key={section.id} section={section} />
+          {groupSectionsByFuel(state.sections).map((fuelGroup) => (
+            <FuelGroupTable key={fuelGroup.fuel} fuelGroup={fuelGroup} />
           ))}
         </div>
       )}
@@ -135,11 +135,126 @@ export default function Page() {
   );
 }
 
-// テンプレと同じイメージで、行=調査日、列=全国・都道府県 の表を表示
-function SectionTable({ section }: { section: Section }) {
-  const { title, surveyDates, national, rows } = section;
+// セクションを燃料ごとにグループ化し、さらに地方を統合
+type FuelGroup = {
+  fuel: 'regular' | 'high' | 'diesel';
+  groups: Array<{
+    title: string;
+    sections: Section[];
+  }>;
+};
 
-  const prefectures = rows.map((r) => r.prefecture);
+function groupSectionsByFuel(sections: Section[]): FuelGroup[] {
+  const fuelGroups: FuelGroup[] = [];
+  const fuels: Array<'regular' | 'high' | 'diesel'> = ['regular', 'high', 'diesel'];
+
+  for (const fuel of fuels) {
+    const fuelSections = sections.filter((s) => s.fuel === fuel);
+    if (fuelSections.length === 0) continue;
+
+    const groups: Array<{ title: string; sections: Section[] }> = [];
+
+    // 北海道・東北をまとめる
+    const hokkaidoSection = fuelSections.find((s) => s.region === 'hokkaido');
+    const tohokuSection = fuelSections.find((s) => s.region === 'tohoku');
+    if (hokkaidoSection || tohokuSection) {
+      groups.push({
+        title: '北海道・東北',
+        sections: [hokkaidoSection, tohokuSection].filter(Boolean) as Section[],
+      });
+    }
+
+    // 関東
+    const kantoSection = fuelSections.find((s) => s.region === 'kanto');
+    if (kantoSection) {
+      groups.push({
+        title: '関東',
+        sections: [kantoSection],
+      });
+    }
+
+    // 中部
+    const chubuSection = fuelSections.find((s) => s.region === 'chubu');
+    if (chubuSection) {
+      groups.push({
+        title: '中部',
+        sections: [chubuSection],
+      });
+    }
+
+    // 近畿
+    const kinkiSection = fuelSections.find((s) => s.region === 'kinki');
+    if (kinkiSection) {
+      groups.push({
+        title: '近畿',
+        sections: [kinkiSection],
+      });
+    }
+
+    // 中国・四国をまとめる
+    const chugokuSection = fuelSections.find((s) => s.region === 'chugoku');
+    const shikokuSection = fuelSections.find((s) => s.region === 'shikoku');
+    if (chugokuSection || shikokuSection) {
+      groups.push({
+        title: '中国・四国',
+        sections: [chugokuSection, shikokuSection].filter(Boolean) as Section[],
+      });
+    }
+
+    // 九州・沖縄をまとめる
+    const kyushuSection = fuelSections.find((s) => s.region === 'kyushu');
+    const okinawaSection = fuelSections.find((s) => s.region === 'okinawa');
+    if (kyushuSection || okinawaSection) {
+      groups.push({
+        title: '九州・沖縄',
+        sections: [kyushuSection, okinawaSection].filter(Boolean) as Section[],
+      });
+    }
+
+    if (groups.length > 0) {
+      fuelGroups.push({ fuel, groups });
+    }
+  }
+
+  return fuelGroups;
+}
+
+// 燃料ごとのグループテーブル
+function FuelGroupTable({ fuelGroup }: { fuelGroup: FuelGroup }) {
+  const fuelName =
+    fuelGroup.fuel === 'regular'
+      ? 'レギュラー'
+      : fuelGroup.fuel === 'high'
+      ? 'ハイオク'
+      : '軽油';
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-lg font-bold">{fuelName}</h1>
+      {fuelGroup.groups.map((group, idx) => (
+        <GroupedSectionTable key={idx} title={group.title} sections={group.sections} />
+      ))}
+    </div>
+  );
+}
+
+// 複数のセクションをまとめて表示するテーブル
+function GroupedSectionTable({
+  title,
+  sections,
+}: {
+  title: string;
+  sections: Section[];
+}) {
+  if (sections.length === 0) return null;
+
+  // 最初のセクションの調査日と全国データを使用（すべて同じはず）
+  const firstSection = sections[0];
+  const { surveyDates, national } = firstSection;
+
+  // すべての都道府県データを結合
+  const allRows = sections.flatMap((s) => s.rows);
+  const prefectures = allRows.map((r) => r.prefecture);
 
   return (
     <div className="border rounded p-3">
@@ -166,7 +281,7 @@ function SectionTable({ section }: { section: Section }) {
                 <td className="border px-2 py-1 text-right">
                   {national[i]?.toFixed(1)}
                 </td>
-                {rows.map((r) => {
+                {allRows.map((r) => {
                   const v = r.prices[i] ?? 0;
                   const high = !isNaN(v) && v > (national[i] ?? 0);
                   return (
