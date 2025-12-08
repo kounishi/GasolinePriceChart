@@ -61,13 +61,8 @@ export default function Page() {
         throw new Error(data.error || '更新に失敗しました');
       }
       // メッセージが指定されている場合はそれを使用、なければlatestに基づいて表示
-      if (data.message) {
-        setMessage(data.message);
-      } else if (data.latest) {
-        setMessage('データは最新です');
-      } else {
-        setMessage('最新データを取得しました');
-      }
+      // ボタン押下時のメッセージを常に統一
+      setMessage('データは最新です');
       setApiState({ loading: false, state: data.state });
     } catch (e: any) {
       // JSONパースエラーの場合
@@ -109,17 +104,29 @@ export default function Page() {
         </button>
       </div>
 
-      {message && <p className="text-sm text-gray-700">{message}</p>}
+      {/* ステータス表示（メッセージ＋最終更新を1行で表示） */}
+      {!apiState.loading && (state || message) && (
+        <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+            {message && <span>{message}</span>}
+            {state && (
+              <span>
+                最終更新: {new Date(state.updatedAt).toLocaleString()} / 直近調査日:{' '}
+                {formatSurveyDate(state.lastSurveyDate)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
-      {apiState.loading && <p>読込中...</p>}
+      {apiState.loading && (
+        <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800">
+          読込中...
+        </div>
+      )}
 
       {state && (
         <div className="space-y-8">
-          <p className="text-sm text-gray-600">
-            最終更新: {new Date(state.updatedAt).toLocaleString()} / 直近調査日:{' '}
-            {formatSurveyDate(state.lastSurveyDate)}
-          </p>
-
           {groupSectionsByFuel(state.sections).map((fuelGroup) => (
             <FuelGroupTable key={fuelGroup.fuel} fuelGroup={fuelGroup} />
           ))}
@@ -127,9 +134,9 @@ export default function Page() {
       )}
 
       {!apiState.loading && !state && (
-        <p className="text-sm text-gray-600">
+        <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800">
           まだ一度も更新されていません。「更新」を押してデータを取得してください。
-        </p>
+        </div>
       )}
     </main>
   );
