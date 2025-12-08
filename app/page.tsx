@@ -267,13 +267,13 @@ function GroupedSectionTable({
     <div className="border rounded p-3">
       <h2 className="font-semibold mb-2 text-sm">{title}</h2>
       <div className="overflow-x-auto">
-        <table className="border-collapse text-xs">
+        <table className="border-collapse text-sm">
           <thead>
             <tr>
-              <th className="border px-2 py-1">調査日</th>
-              <th className="border px-2 py-1">全国</th>
+              <th className="border px-3 py-2">調査日</th>
+              <th className="border px-3 py-2">全国</th>
               {prefectures.map((p) => (
-                <th key={p} className="border px-2 py-1">
+                <th key={p} className="border px-3 py-2">
                   {p}
                 </th>
               ))}
@@ -282,10 +282,10 @@ function GroupedSectionTable({
           <tbody>
             {surveyDates.map((date, i) => (
               <tr key={i}>
-                <td className="border px-2 py-1 whitespace-nowrap">
+                <td className="border px-3 py-2 whitespace-nowrap">
                   {formatSurveyDate(date)}
                 </td>
-                <td className="border px-2 py-1 text-right">
+                <td className="border px-3 py-2 text-right">
                   {national[i]?.toFixed(1)}
                 </td>
                 {allRows.map((r) => {
@@ -294,7 +294,7 @@ function GroupedSectionTable({
                   return (
                     <td
                       key={r.prefecture + i}
-                      className={`border px-2 py-1 text-right ${
+                      className={`border px-3 py-2 text-right ${
                         high ? 'bg-red-200' : ''
                       }`}
                     >
