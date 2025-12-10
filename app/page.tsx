@@ -108,14 +108,14 @@ export default function Page() {
           disabled={updating}
           className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
         >
-          {updating ? '更新中…' : '更新（資源エネルギー庁データの読込）'}
+          {updating ? '更新中…' : '更新（資源エネルギー庁サイトの最新調査データの読込）'}
         </button>
 
         <button
           onClick={handleDownload}
           className="px-4 py-2 rounded bg-blue-600 text-white"
         >
-          価格表ダウンロード
+          価格比較表のダウンロード
         </button>
       </div>
 
