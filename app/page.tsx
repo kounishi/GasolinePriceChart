@@ -33,7 +33,14 @@ export default function Page() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/prices');
+        const res = await fetch('/api/prices', {
+          cache: 'no-store', // ブラウザキャッシュを無効化
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         const data = await res.json();
         setApiState({ loading: false, state: data.state ?? null });
       } catch {
@@ -48,7 +55,15 @@ export default function Page() {
     setUpdating(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/update-prices', { method: 'POST' });
+      const res = await fetch('/api/update-prices', { 
+        method: 'POST',
+        cache: 'no-store', // キャッシュを無効化
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       
       // レスポンスがJSONかどうかを確認
       const contentType = res.headers.get('content-type');
