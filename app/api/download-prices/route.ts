@@ -8,6 +8,8 @@ import { loadState } from '@/lib/store';
 import type { PriceState, Section, Region } from '@/lib/types';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // キャッシュを無効化
+export const revalidate = 0; // 再検証を無効化
 
 const TEMPLATE_PATH = path.join(
   process.cwd(),
