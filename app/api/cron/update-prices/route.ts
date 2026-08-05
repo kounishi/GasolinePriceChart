@@ -3,12 +3,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
-import { getWeeklyFileUrl } from '@/lib/enecho';
+import {
+  getWeeklyFileUrl,
+  ENECHO_FETCH_HEADERS,
+  assertNotWafChallenged,
+} from '@/lib/enecho';
 import { buildPriceStateFromWorkbook } from '@/lib/weekly';
 import { loadState, saveState } from '@/lib/store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5分（Cron Jobsは最大5分まで）
+
+// results.html と週次ファイルを連続で叩くと WAF のレート系ルールに触れやすいため、
+// リクエストの間隔を空ける（予防的措置）
+const REQUEST_INTERVAL_MS = 15000;
 
 export async function GET(request: NextRequest) {
   // Vercel Cron Jobsからのリクエストか確認
@@ -25,6 +33,11 @@ export async function GET(request: NextRequest) {
     const weeklyUrl = await getWeeklyFileUrl();
 
     // 2. Excel取得（タイムアウトを長めに設定）
+    console.log(
+      `WAFのレート制限を避けるため${REQUEST_INTERVAL_MS / 1000}秒待機します...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, REQUEST_INTERVAL_MS));
+
     const maxRetries = 3;
     const timeoutMs = 120000; // 2分タイムアウト（Cron Jobsは5分まで可能）
     let resp: Response | null = null;
@@ -40,6 +53,7 @@ export async function GET(request: NextRequest) {
         resp = await fetch(weeklyUrl, {
           cache: 'no-store',
           signal: controller.signal,
+          headers: ENECHO_FETCH_HEADERS,
         });
         clearTimeout(timeoutId);
 
@@ -68,8 +82,13 @@ export async function GET(request: NextRequest) {
       throw new Error('週次ファイル取得に失敗しました');
     }
 
+    assertNotWafChallenged(resp, '週次ファイル取得');
+
     if (!resp.ok) {
-      throw new Error(`週次ファイル取得に失敗しました (${resp.status})`);
+      throw new Error(
+        `週次ファイル取得に失敗しました (${resp.status})。` +
+          `403 の場合は資源エネルギー庁サイトのWAFにブロックされている可能性があります（User-Agent 制限）`
+      );
     }
     const buf = Buffer.from(await resp.arrayBuffer());
 

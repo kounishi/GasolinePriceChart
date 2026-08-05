@@ -21,6 +21,20 @@ function formatSurveyDate(dateStr: string): string {
   return `${y}/${m}/${day}`;
 }
 
+// 調査は週次（月曜調査・水曜公表）なので、直近調査日がこの日数を超えたら
+// 自動更新が停止していると判断する（祝日等による遅延を見込んで10日）
+const STALE_THRESHOLD_DAYS = 10;
+
+// 直近調査日から何日経過したか。判定できない場合は null
+function daysSinceSurveyDate(dateStr: string): number | null {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) {
+    return null;
+  }
+  const diffMs = Date.now() - d.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export default function Page() {
   const [apiState, setApiState] = useState<ApiState>({
     loading: true,
@@ -50,6 +64,7 @@ export default function Page() {
   }, []);
 
   const state = apiState.state;
+  const staleDays = state ? daysSinceSurveyDate(state.lastSurveyDate) : null;
 
   const handleUpdate = async () => {
     setUpdating(true);
@@ -118,6 +133,15 @@ export default function Page() {
           価格比較表のダウンロード
         </button>
       </div>
+
+      {/* データ鮮度の警告（自動更新の停止に気付けるようにする） */}
+      {!apiState.loading && state && staleDays !== null && staleDays > STALE_THRESHOLD_DAYS && (
+        <div className="bg-yellow-100 border border-yellow-400 rounded px-4 py-2 text-sm text-yellow-900">
+          ⚠ データが{staleDays}日間更新されていません（直近調査日:{' '}
+          {formatSurveyDate(state.lastSurveyDate)}）。自動更新が停止している可能性があります。logs\update-prices.log
+          を確認してください。
+        </div>
+      )}
 
       {/* ステータス表示（メッセージ＋最終更新を1行で表示） */}
       {!apiState.loading && (state || message) && (

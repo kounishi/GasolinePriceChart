@@ -24,6 +24,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# run-update-prices.bat の実行ログ
+/logs
+
 # local env files
 .env*.local
 .env

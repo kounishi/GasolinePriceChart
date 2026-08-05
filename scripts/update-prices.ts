@@ -13,10 +13,18 @@ if (!process.env.REDIS_URL) {
   console.log('✓ REDIS_URL環境変数が設定されています');
 }
 
-import { getWeeklyFileUrl } from '../lib/enecho';
+import {
+  getWeeklyFileUrl,
+  ENECHO_FETCH_HEADERS,
+  assertNotWafChallenged,
+} from '../lib/enecho';
 import { buildPriceStateFromWorkbook } from '../lib/weekly';
 import { loadState, saveState } from '../lib/store';
 import ExcelJS from 'exceljs';
+
+// results.html と週次ファイルを連続で叩くと WAF のレート系ルールに触れやすいため、
+// リクエストの間隔を空ける（予防的措置）
+const REQUEST_INTERVAL_MS = 15000;
 
 async function main() {
   try {
@@ -39,13 +47,26 @@ async function main() {
 
     // 2. Excel取得
     console.log('\n[2/4] 週次ファイルをダウンロード中...');
+    console.log(
+      `WAFのレート制限を避けるため${REQUEST_INTERVAL_MS / 1000}秒待機します...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, REQUEST_INTERVAL_MS));
+
     const startTime = Date.now();
-    const resp = await fetch(weeklyUrl, { cache: 'no-store' });
-    
+    const resp = await fetch(weeklyUrl, {
+      cache: 'no-store',
+      headers: ENECHO_FETCH_HEADERS,
+    });
+
+    assertNotWafChallenged(resp, '週次ファイル取得');
+
     if (!resp.ok) {
-      throw new Error(`週次ファイル取得に失敗しました (${resp.status})`);
+      throw new Error(
+        `週次ファイル取得に失敗しました (${resp.status})。` +
+          `403 の場合は資源エネルギー庁サイトのWAFにブロックされている可能性があります（User-Agent 制限）`
+      );
     }
-    
+
     const buf = Buffer.from(await resp.arrayBuffer());
     const downloadDuration = Date.now() - startTime;
     console.log(`ダウンロード完了 (所要時間: ${downloadDuration}ms)`);
@@ -122,5 +143,8 @@ async function main() {
   }
 }
 
-main();
+// lib/store.ts は Redis 接続をモジュールレベルで保持したまま閉じないため、
+// 明示的に終了しないとイベントループが残りプロセスが終わらない。
+// バッチ実行では次回実行がスキップされたりプロセスが溜まる原因になる。
+main().then(() => process.exit(0));
 
