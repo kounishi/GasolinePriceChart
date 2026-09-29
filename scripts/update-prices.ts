@@ -14,7 +14,8 @@ if (!process.env.REDIS_URL) {
 }
 
 import {
-  getWeeklyFileUrl,
+  getResultsPageInfo,
+  publishDateFromWeeklyUrl,
   ENECHO_FETCH_HEADERS,
   assertNotWafChallenged,
 } from '../lib/enecho';
@@ -42,8 +43,18 @@ async function main() {
 
     // 1. 週次ファイルURL取得
     console.log('\n[1/4] 週次ファイルURLを取得中...');
-    const weeklyUrl = await getWeeklyFileUrl();
+    const { weeklyUrl, siteStatus } = await getResultsPageInfo();
     console.log(`週次ファイルURL: ${weeklyUrl}`);
+    console.log(
+      `サイトの最新公表日: ${siteStatus.latestPublishDate ?? '不明'} / ` +
+        `次回公表予定: ${siteStatus.schedule[0]?.label ?? '不明'}`
+    );
+    // 以降の週次ファイル取得に失敗しても「サイトに未適用の新しいデータがある」ことを
+    // 画面で分かるよう、サイトの確認結果だけ先に保存しておく
+    if (current) {
+      await saveState({ ...current, siteStatus });
+    }
+    const sourcePublishDate = publishDateFromWeeklyUrl(weeklyUrl);
 
     // 2. Excel取得
     console.log('\n[2/4] 週次ファイルをダウンロード中...');
@@ -79,7 +90,11 @@ async function main() {
 
     // 4. PriceState生成
     console.log('\n[4/4] データを生成中...');
-    const newState = buildPriceStateFromWorkbook(wb);
+    const newState = {
+      ...buildPriceStateFromWorkbook(wb),
+      sourcePublishDate,
+      siteStatus,
+    };
     console.log(`生成された最終調査日: ${newState.lastSurveyDate}`);
 
     // 5. 古い形式のデータを検出（セクション数が6個、またはIDに`-east`/`-west`が含まれる）
@@ -105,6 +120,8 @@ async function main() {
 
     // 6. 調査日が同じで、かつ新しい形式で、かつ北海道・沖縄のデータが含まれている場合は更新不要
     if (current && current.lastSurveyDate === newState.lastSurveyDate && !isOldFormat && hasHokkaidoOkinawaData) {
+      // 同じ週次ファイル由来のデータなので、適用済み公表日だけ記録する（updatedAt は変えない）
+      await saveState({ ...current, sourcePublishDate, siteStatus });
       console.log('\n' + '='.repeat(60));
       console.log('✓ データは最新です。更新は不要です。');
       console.log('='.repeat(60));

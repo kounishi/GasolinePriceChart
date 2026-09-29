@@ -21,9 +21,13 @@ function formatSurveyDate(dateStr: string): string {
   return `${y}/${m}/${day}`;
 }
 
-// 調査は週次（月曜調査・水曜公表）なので、直近調査日がこの日数を超えたら
-// 自動更新が停止していると判断する（祝日等による遅延を見込んで10日）
-const STALE_THRESHOLD_DAYS = 10;
+// 公表予定日時（14:00）を過ぎてから自動更新（14:30 / 2:30）で取り込まれるまでの猶予。
+// 14:30 の実行が WAF 等で1回失敗しても、翌 2:30 の実行で取り込めれば警告しない。
+const PUBLISH_GRACE_HOURS = 24;
+
+// サイトの確認結果が無い古いデータ用の判定。
+// 祝日週は調査・公表自体が休みになり調査日が2週間空くため、それを超えたら停止とみなす。
+const STALE_THRESHOLD_DAYS = 17;
 
 // 直近調査日から何日経過したか。判定できない場合は null
 function daysSinceSurveyDate(dateStr: string): number | null {
@@ -33,6 +37,43 @@ function daysSinceSurveyDate(dateStr: string): number | null {
   }
   const diffMs = Date.now() - d.getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+// 正常に更新されているかを判定し、問題があれば警告文を返す。
+// 正常 = サイトの「調査結果」の公表日のデータが適用済み、かつ「公表予定日」の先頭が未来
+function getStaleWarning(state: PriceState): string | null {
+  const site = state.siteStatus;
+  const next = site?.schedule[0];
+
+  if (!site || !site.latestPublishDate || !next) {
+    const staleDays = daysSinceSurveyDate(state.lastSurveyDate);
+    if (staleDays === null || staleDays <= STALE_THRESHOLD_DAYS) {
+      return null;
+    }
+    return (
+      `データが${staleDays}日間更新されていません（直近調査日: ${formatSurveyDate(state.lastSurveyDate)}）。` +
+      `自動更新が停止している可能性があります。logs\\update-prices.log を確認してください。`
+    );
+  }
+
+  if (state.sourcePublishDate !== site.latestPublishDate) {
+    return (
+      `資源エネルギー庁サイトの最新データ（${formatSurveyDate(site.latestPublishDate)}公表）が未適用です` +
+      `（適用済み: ${state.sourcePublishDate ? `${formatSurveyDate(state.sourcePublishDate)}公表` : '不明'}）。` +
+      `logs\\update-prices.log を確認してください。`
+    );
+  }
+
+  const nextTime = new Date(next.date).getTime();
+  if (Date.now() > nextTime + PUBLISH_GRACE_HOURS * 60 * 60 * 1000) {
+    return (
+      `公表予定日（${next.label}）を過ぎていますが、新しい公表データを確認できていません` +
+      `（最終サイト確認: ${new Date(site.checkedAt).toLocaleString()}）。` +
+      `自動更新が停止している可能性があります。logs\\update-prices.log を確認してください。`
+    );
+  }
+
+  return null;
 }
 
 export default function Page() {
@@ -64,7 +105,7 @@ export default function Page() {
   }, []);
 
   const state = apiState.state;
-  const staleDays = state ? daysSinceSurveyDate(state.lastSurveyDate) : null;
+  const staleWarning = state ? getStaleWarning(state) : null;
 
   const handleUpdate = async () => {
     setUpdating(true);
@@ -135,11 +176,9 @@ export default function Page() {
       </div>
 
       {/* データ鮮度の警告（自動更新の停止に気付けるようにする） */}
-      {!apiState.loading && state && staleDays !== null && staleDays > STALE_THRESHOLD_DAYS && (
+      {!apiState.loading && staleWarning && (
         <div className="bg-yellow-100 border border-yellow-400 rounded px-4 py-2 text-sm text-yellow-900">
-          ⚠ データが{staleDays}日間更新されていません（直近調査日:{' '}
-          {formatSurveyDate(state.lastSurveyDate)}）。自動更新が停止している可能性があります。logs\update-prices.log
-          を確認してください。
+          ⚠ {staleWarning}
         </div>
       )}
 
@@ -155,6 +194,7 @@ export default function Page() {
               </span>
             )}
           </div>
+          {state?.siteStatus && <SiteStatusInfo state={state} />}
         </div>
       )}
 
@@ -178,6 +218,35 @@ export default function Page() {
         </div>
       )}
     </main>
+  );
+}
+
+// 直近の更新処理で確認した資源エネルギー庁サイトの状況（最新公表日・公表予定日）
+function SiteStatusInfo({ state }: { state: PriceState }) {
+  const site = state.siteStatus;
+  if (!site) return null;
+  const applied =
+    site.latestPublishDate !== null && state.sourcePublishDate === site.latestPublishDate;
+
+  return (
+    <div className="mt-1 pt-1 border-t border-blue-200 space-y-0.5">
+      <div>
+        資源エネルギー庁サイトの最新データ公表日:{' '}
+        {site.latestPublishDate
+          ? `${formatSurveyDate(site.latestPublishDate)}${site.latestPublishLabel?.match(/（.）/)?.[0] ?? ''}`
+          : '不明'}
+        {site.latestPublishDate && (applied ? '（適用済み）' : '（未適用）')}
+        <span className="text-blue-600">
+          {' '}
+          / サイト確認: {new Date(site.checkedAt).toLocaleString()}
+        </span>
+      </div>
+      <div>
+        公表予定日:{' '}
+        {site.schedule.length > 0 ? site.schedule.map((s) => s.label).join(' / ') : '不明'}
+      </div>
+      {site.scheduleNote && <div>{site.scheduleNote}</div>}
+    </div>
   );
 }
 

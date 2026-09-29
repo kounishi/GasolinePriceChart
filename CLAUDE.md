@@ -62,6 +62,14 @@ Each must also call `assertNotWafChallenged(resp, label)` before the `!resp.ok` 
 
 An update is skipped only when all three hold: `lastSurveyDate` is unchanged **and** the stored data is not the legacy shape (6 sections, or ids containing `-east`/`-west`) **and** both 北海道 and 沖縄 rows carry non-zero prices. The latter two conditions are migration guards that force a rewrite of stale Redis blobs; removing them will strand old data.
 
+"Skipped" no longer means "no Redis write": both writers save `siteStatus` right after `results.html` succeeds (so a later `.xlsx` failure still records that the site has newer data), and the skip path saves `sourcePublishDate` + `siteStatus` onto the existing blob without touching `updatedAt`.
+
+### Freshness check (`siteStatus` / warning banner)
+
+`parseSiteStatus()` in `lib/enecho.ts` reads two blocks of `results.html`: the 「結果詳細版」 link text (latest publish date, e.g. 「9月16日（水）」) and the `<p>` after the 「公表予定日」 `<h3>` (schedule lines + the 「※原則…」 note). Dates have no year; `inferYear()` picks the year closest to the check time. `sourcePublishDate` comes from the weekly file name (`YYMMDDs5.xlsx`).
+
+`getStaleWarning()` in `app/page.tsx` treats data as healthy when `sourcePublishDate === siteStatus.latestPublishDate` **and** now is before the first scheduled publish time + `PUBLISH_GRACE_HOURS` (24h, to cover the 14:30 run failing and the 2:30 run catching up). The site info is only as fresh as the last writer run — the page never contacts enecho. Blobs without `siteStatus` fall back to the old days-since-survey check (`STALE_THRESHOLD_DAYS = 17`; holiday weeks have no survey, so 14-day gaps are normal).
+
 ### Two different region models — the main source of bugs
 
 `lib/weekly.ts` builds **27 sections** = 3 fuels × 9 regions (`hokkaido, tohoku, kanto, chubu, kinki, chugoku, shikoku, kyushu, okinawa`), ids like `regular-kanto`. Section `surveyDates`/`national` are the same across sections of one fuel; prefecture order inside `REGION_PREFS` is deliberately aligned to the Excel template's column order.

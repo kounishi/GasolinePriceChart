@@ -4,7 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
 import {
-  getWeeklyFileUrl,
+  getResultsPageInfo,
+  publishDateFromWeeklyUrl,
   ENECHO_FETCH_HEADERS,
   assertNotWafChallenged,
 } from '@/lib/enecho';
@@ -30,7 +31,13 @@ export async function GET(request: NextRequest) {
     const current = await loadState();
 
     // 1. 週次ファイルURL取得
-    const weeklyUrl = await getWeeklyFileUrl();
+    const { weeklyUrl, siteStatus } = await getResultsPageInfo();
+    // 以降の週次ファイル取得に失敗しても「サイトに未適用の新しいデータがある」ことを
+    // 画面で分かるよう、サイトの確認結果だけ先に保存しておく
+    if (current) {
+      await saveState({ ...current, siteStatus });
+    }
+    const sourcePublishDate = publishDateFromWeeklyUrl(weeklyUrl);
 
     // 2. Excel取得（タイムアウトを長めに設定）
     console.log(
@@ -97,7 +104,11 @@ export async function GET(request: NextRequest) {
     await wb.xlsx.load(buf as any);
 
     // 4. PriceState生成
-    const newState = buildPriceStateFromWorkbook(wb);
+    const newState = {
+      ...buildPriceStateFromWorkbook(wb),
+      sourcePublishDate,
+      siteStatus,
+    };
 
     // 5. 古い形式のデータを検出（セクション数が6個、またはIDに`-east`/`-west`が含まれる）
     const isOldFormat = current && (
@@ -122,6 +133,8 @@ export async function GET(request: NextRequest) {
 
     // 6. 調査日が同じで、かつ新しい形式で、かつ北海道・沖縄のデータが含まれている場合は更新不要
     if (current && current.lastSurveyDate === newState.lastSurveyDate && !isOldFormat && hasHokkaidoOkinawaData) {
+      // 同じ週次ファイル由来のデータなので、適用済み公表日だけ記録する（updatedAt は変えない）
+      await saveState({ ...current, sourcePublishDate, siteStatus });
       console.log('Cronジョブ: データは最新です');
       return NextResponse.json({
         success: true,
