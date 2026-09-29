@@ -231,21 +231,29 @@ function SiteStatusInfo({ state }: { state: PriceState }) {
   return (
     <div className="mt-1 pt-1 border-t border-blue-200 space-y-0.5">
       <div>
-        資源エネルギー庁サイトの最新データ公表日:{' '}
         {site.latestPublishDate
-          ? `${formatSurveyDate(site.latestPublishDate)}${site.latestPublishLabel?.match(/（.）/)?.[0] ?? ''}`
-          : '不明'}
+          ? `現在、資源エネルギー庁サイトに掲載されている最新のデータ公表日は、${formatSurveyDate(site.latestPublishDate)}${site.latestPublishLabel?.match(/（.）/)?.[0] ?? ''}です`
+          : '資源エネルギー庁サイトに掲載されている最新のデータ公表日を確認できませんでした'}
         {site.latestPublishDate && (applied ? '（適用済み）' : '（未適用）')}
         <span className="text-blue-600">
           {' '}
           / サイト確認: {new Date(site.checkedAt).toLocaleString()}
         </span>
       </div>
-      <div>
-        公表予定日:{' '}
-        {site.schedule.length > 0 ? site.schedule.map((s) => s.label).join(' / ') : '不明'}
+      {/* サイトと同じく1件ずつ縦に並べる */}
+      <div className="pt-1">
+        <div>公表予定日</div>
+        {site.schedule.length > 0 ? (
+          site.schedule.map((s) => (
+            <div key={s.date} className="pl-4">
+              {s.label}
+            </div>
+          ))
+        ) : (
+          <div className="pl-4">不明</div>
+        )}
+        {site.scheduleNote && <div className="pl-4">{site.scheduleNote}</div>}
       </div>
-      {site.scheduleNote && <div>{site.scheduleNote}</div>}
     </div>
   );
 }
