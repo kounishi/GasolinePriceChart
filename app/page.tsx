@@ -194,9 +194,11 @@ export default function Page() {
               </span>
             )}
           </div>
-          {state?.siteStatus && <SiteStatusInfo state={state} />}
         </div>
       )}
+
+      {/* 資源エネルギー庁サイトの公表状況（最終更新とは別の帯で表示） */}
+      {!apiState.loading && state?.siteStatus && <SiteStatusInfo state={state} />}
 
       {apiState.loading && (
         <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800">
@@ -229,7 +231,7 @@ function SiteStatusInfo({ state }: { state: PriceState }) {
     site.latestPublishDate !== null && state.sourcePublishDate === site.latestPublishDate;
 
   return (
-    <div className="mt-1 pt-1 border-t border-blue-200 space-y-0.5">
+    <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800 space-y-0.5">
       <div>
         {site.latestPublishDate
           ? `現在、資源エネルギー庁サイトに掲載されている最新のデータ公表日は、${formatSurveyDate(site.latestPublishDate)}${site.latestPublishLabel?.match(/（.）/)?.[0] ?? ''}です`
