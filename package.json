@@ -10,6 +10,7 @@
     "update-prices": "tsx scripts/update-prices.ts"
   },
   "dependencies": {
+    "@holiday-jp/holiday_jp": "^2.5.2",
     "@vercel/kv": "^0.2.1",
     "cheerio": "^1.0.0",
     "exceljs": "^4.4.0",

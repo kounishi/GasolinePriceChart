@@ -2,6 +2,7 @@
 
 import * as cheerio from 'cheerio';
 import type { PublishSchedule, SiteStatus } from './types';
+import { buildPublishGapNotes } from './publishGap';
 
 const RESULTS_URL =
   'https://www.enecho.meti.go.jp/statistics/petroleum_and_lpgas/pl007/results.html';
@@ -122,6 +123,11 @@ export function parseSiteStatus(html: string, checkedAt: Date): SiteStatus {
     latestPublishLabel,
     schedule,
     scheduleNote,
+    // 最新公表日 → 公表予定日の順に並べ、1週以上空いている箇所を調べる
+    publishGapNotes: buildPublishGapNotes([
+      ...(latestPublishDate ? [latestPublishDate] : []),
+      ...schedule.map((s) => s.date),
+    ]),
   };
 }
 

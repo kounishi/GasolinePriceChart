@@ -29,6 +29,7 @@ export type SiteStatus = {
   latestPublishLabel: string | null;  // サイト表記（例: "9月16日（水）"）
   schedule: PublishSchedule[];        // 「公表予定日」（サイト掲載順）
   scheduleNote: string | null;        // 例: "※原則、毎週月曜日調査、水曜日公表"
+  publishGapNotes?: string[];         // 公表が1週飛んでいる理由（祝日から推定）。飛んでいなければ空
 };
 
 export type PriceState = {

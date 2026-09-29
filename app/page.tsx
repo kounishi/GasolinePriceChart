@@ -254,6 +254,12 @@ function SiteStatusInfo({ state }: { state: PriceState }) {
         )}
         {site.scheduleNote && <div className="pl-4">{site.scheduleNote}</div>}
       </div>
+      {/* 公表が1週飛んでいる場合のみ、その理由を表示する */}
+      {site.publishGapNotes?.map((note) => (
+        <div key={note} className="pt-1">
+          {note}
+        </div>
+      ))}
     </div>
   );
 }
