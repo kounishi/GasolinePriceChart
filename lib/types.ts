@@ -28,6 +28,7 @@ export type SiteStatus = {
   latestPublishDate: string | null;   // 「調査結果」の最新公表日（例: "2026-09-16"）
   latestPublishLabel: string | null;  // サイト表記（例: "9月16日（水）"）
   schedule: PublishSchedule[];        // 「公表予定日」（サイト掲載順）
+  published?: PublishSchedule[];      // 公表済み（前回・最新の2件、古い順）。サイトには残らないため更新処理で引き継ぐ
   scheduleNote: string | null;        // 例: "※原則、毎週月曜日調査、水曜日公表"
   publishGapNotes?: string[];         // 公表が1週飛んでいる理由（祝日から推定）。飛んでいなければ空
 };

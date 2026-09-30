@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const current = await loadState();
 
     // 1. 週次ファイルURL取得
-    const { weeklyUrl, siteStatus } = await getResultsPageInfo();
+    const { weeklyUrl, siteStatus } = await getResultsPageInfo(current?.siteStatus);
     // 以降の週次ファイル取得に失敗しても「サイトに未適用の新しいデータがある」ことを
     // 画面で分かるよう、サイトの確認結果だけ先に保存しておく
     if (current) {

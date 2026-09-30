@@ -229,6 +229,10 @@ function SiteStatusInfo({ state }: { state: PriceState }) {
   if (!site) return null;
   const applied =
     site.latestPublishDate !== null && state.sourcePublishDate === site.latestPublishDate;
+  const published = site.published ?? [];
+  const lastPublished = published[published.length - 1]?.date.slice(0, 10) ?? '';
+  // サイトの公表予定日の更新が遅れても、公表済みと重複して表示しない
+  const upcoming = site.schedule.filter((s) => s.date.slice(0, 10) > lastPublished);
 
   return (
     <div className="bg-blue-100 border border-blue-300 rounded px-4 py-2 text-sm text-blue-800 space-y-0.5">
@@ -245,8 +249,14 @@ function SiteStatusInfo({ state }: { state: PriceState }) {
       {/* サイトと同じく1件ずつ縦に並べる */}
       <div className="pt-1">
         <div>公表予定日</div>
-        {site.schedule.length > 0 ? (
-          site.schedule.map((s) => (
+        {/* 飛んだ週の理由が分かるよう、サイトから消えた前回・最新の公表日も残して表示する */}
+        {published.map((p) => (
+          <div key={p.date} className="pl-4">
+            {p.label}（公表済み）
+          </div>
+        ))}
+        {upcoming.length > 0 ? (
+          upcoming.map((s) => (
             <div key={s.date} className="pl-4">
               {s.label}
             </div>

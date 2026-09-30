@@ -43,7 +43,7 @@ async function main() {
 
     // 1. 週次ファイルURL取得
     console.log('\n[1/4] 週次ファイルURLを取得中...');
-    const { weeklyUrl, siteStatus } = await getResultsPageInfo();
+    const { weeklyUrl, siteStatus } = await getResultsPageInfo(current?.siteStatus);
     console.log(`週次ファイルURL: ${weeklyUrl}`);
     console.log(
       `サイトの最新公表日: ${siteStatus.latestPublishDate ?? '不明'} / ` +

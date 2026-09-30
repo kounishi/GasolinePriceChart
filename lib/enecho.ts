@@ -74,7 +74,11 @@ export function publishDateFromWeeklyUrl(url: string): string | null {
 
 // results.html の「調査結果」「公表予定日」を読み取る。
 // 表示用の補助情報なので、読み取れなくても例外にはせず null / 空で返す。
-export function parseSiteStatus(html: string, checkedAt: Date): SiteStatus {
+export function parseSiteStatus(
+  html: string,
+  checkedAt: Date,
+  previous?: SiteStatus
+): SiteStatus {
   const $ = cheerio.load(html);
 
   // 「調査結果」: 「9月16日（水）結果詳細版（EXCEL形式）」のリンク
@@ -117,22 +121,62 @@ export function parseSiteStatus(html: string, checkedAt: Date): SiteStatus {
     console.warn('results.html: 「公表予定日」を読み取れませんでした');
   }
 
+  const published = buildPublishedHistory(latestPublishDate, latestPublishLabel, previous);
+  const lastPublished = published[published.length - 1]?.date.slice(0, 10) ?? '';
+
   return {
     checkedAt: checkedAt.toISOString(),
     latestPublishDate,
     latestPublishLabel,
     schedule,
     scheduleNote,
-    // 最新公表日 → 公表予定日の順に並べ、1週以上空いている箇所を調べる
+    published,
+    // 公表済み（前回・最新）→ 公表予定日の順に並べ、1週以上空いている箇所を調べる。
+    // 前回分を残しているので、飛んだ週は次の公表で前回分から外れるまでメッセージが残る
     publishGapNotes: buildPublishGapNotes([
-      ...(latestPublishDate ? [latestPublishDate] : []),
-      ...schedule.map((s) => s.date),
+      ...published.map((p) => p.date),
+      ...schedule.map((s) => s.date).filter((d) => d.slice(0, 10) > lastPublished),
     ]),
   };
 }
 
-// HTML を読んで「週次ファイル」のリンクとサイトの公表状況を取得する
-export async function getResultsPageInfo(): Promise<{
+// 画面に残す公表済みの件数（前回・最新）
+const PUBLISHED_KEEP = 2;
+
+// サイトには最新の公表日しか載らないため、前回の更新処理で保存した履歴に最新公表日を足して引き継ぐ
+function buildPublishedHistory(
+  latestPublishDate: string | null,
+  latestPublishLabel: string | null,
+  previous: SiteStatus | undefined
+): PublishSchedule[] {
+  const history = [...(previous?.published ?? [])];
+
+  // 履歴を持たない旧データは、前回確認時の最新公表日から始める
+  if (history.length === 0 && previous?.latestPublishDate) {
+    history.push(
+      toPublishedEntry(previous.latestPublishDate, previous.latestPublishLabel, previous)
+    );
+  }
+  if (latestPublishDate && !history.some((h) => h.date.startsWith(latestPublishDate))) {
+    history.push(toPublishedEntry(latestPublishDate, latestPublishLabel, previous));
+  }
+
+  return history.sort((a, b) => a.date.localeCompare(b.date)).slice(-PUBLISHED_KEEP);
+}
+
+function toPublishedEntry(
+  date: string,
+  label: string | null,
+  previous: SiteStatus | undefined
+): PublishSchedule {
+  // 前回確認時の公表予定日に載っていれば、その表記（時刻付き）を使う
+  const scheduled = previous?.schedule.find((s) => s.date.startsWith(date));
+  return scheduled ?? { date, label: label ?? date };
+}
+
+// HTML を読んで「週次ファイル」のリンクとサイトの公表状況を取得する。
+// previous は前回保存したサイトの状況（公表済みの履歴を引き継ぐため）
+export async function getResultsPageInfo(previous?: SiteStatus): Promise<{
   weeklyUrl: string;
   siteStatus: SiteStatus;
 }> {
@@ -180,7 +224,7 @@ export async function getResultsPageInfo(): Promise<{
 
       return {
         weeklyUrl: new URL(href, RESULTS_URL).toString(),
-        siteStatus: parseSiteStatus(html, new Date()),
+        siteStatus: parseSiteStatus(html, new Date(), previous),
       };
     } catch (error: any) {
       clearTimeout(timeoutId);
